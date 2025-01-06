@@ -8,7 +8,7 @@ if (isset($_GET['kode_transaksi'])) {
 
     // Query untuk mendapatkan data transaksi
     $query = "
-        SELECT t.id_transaksi, b.nama, b.harga, t.quantity, t.subtotal, t.tanggal_transaksi 
+        SELECT t.id_transaksi, b.nama, b.harga, t.quantity, t.subtotal, t.tanggal_transaksi
         FROM transaksi t
         JOIN barang b ON t.id_barang = b.id_barang
         WHERE t.id_transaksi = '$kodeTransaksi'
@@ -21,6 +21,22 @@ if (isset($_GET['kode_transaksi'])) {
         echo "Transaksi tidak ditemukan.";
         exit();
     }
+
+    $queryTotal = "
+        SELECT SUM(t.subtotal) AS total
+        FROM transaksi t 
+        GROUP BY t.id_transaksi
+        HAVING t.id_transaksi = '$kodeTransaksi'
+    ";
+
+    $resultTotal = $conn->query($queryTotal);
+    if ($resultTotal->num_rows > 0) {
+        $row = $resultTotal->fetch_assoc();
+        $total = $row['total'];
+    } else {
+        echo "Total Kosong";
+        exit();
+    }
 } else {
     echo "Kode transaksi tidak ditemukan.";
     exit();
@@ -29,12 +45,14 @@ if (isset($_GET['kode_transaksi'])) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nota Transaksi</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body>
     <div class="container mt-5">
         <h2 class="text-center">Nota Transaksi</h2>
@@ -52,7 +70,6 @@ if (isset($_GET['kode_transaksi'])) {
             </thead>
             <tbody>
                 <?php
-                $total = 0;
                 $no = 1;
                 foreach ($transaksi as $item) {
                     echo "<tr>";
@@ -62,7 +79,6 @@ if (isset($_GET['kode_transaksi'])) {
                     echo "<td>" . $item['quantity'] . "</td>";
                     echo "<td>" . number_format($item['subtotal'], 0, ',', '.') . "</td>";
                     echo "</tr>";
-                    $total += $item['subtotal'];
                 }
                 ?>
             </tbody>
@@ -79,4 +95,5 @@ if (isset($_GET['kode_transaksi'])) {
         </div>
     </div>
 </body>
+
 </html>

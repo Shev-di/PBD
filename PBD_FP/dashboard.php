@@ -132,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cetak'])) {
         <div class="col-sm-2 d-flex flex-column bg-secondary align-items-center pt-3">
             <a href="dashboard.php" class="btn btn-dark px-4 mt-2">Buat Transaksi</a>
             <a href="riwayat.php" class="btn btn-light mt-2">Riwayat Transaksi</a>
+            <a href="daftar_barang.php" class="btn btn-light mt-2 px-4">Daftar Barang</a>
             <a href="login.php" class="btn btn-danger mt-2">LOGOUT</a>
         </div>
 
