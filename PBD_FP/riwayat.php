@@ -7,12 +7,13 @@ if (!isset($_SESSION['id_karyawan'])) {
     header("Location: login.php");
     exit();
 }
+
 // Ambil tanggal yang dipilih
 $tanggal_dipilih = isset($_GET['tanggal']) ? $_GET['tanggal'] : '';
 
 // Tambahkan logika untuk tombol "Tampilkan Semua Data"
 if (isset($_GET['tampilkan_semua'])) {
-    $tanggal_dipilih = ''; 
+    $tanggal_dipilih = '';
 }
 
 // Query untuk menghitung jumlah transaksi 
@@ -22,13 +23,13 @@ $queryJumlahTransaksi = "
 ";
 
 if ($tanggal_dipilih) {
-    $queryJumlahTransaksi .= " GROUP BY tanggal_transaksi HAVING tanggal_transaksi = '$tanggal_dipilih'";
+    $queryJumlahTransaksi .= " WHERE tanggal_transaksi = '$tanggal_dipilih'";
 }
 
 $resultJumlahTransaksi = $conn->query($queryJumlahTransaksi);
 $jumlahTransaksi = 0;
 
-if ($resultJumlahTransaksi->num_rows > 0) {
+if ($resultJumlahTransaksi && $resultJumlahTransaksi->num_rows > 0) {
     $rowJumlahTransaksi = $resultJumlahTransaksi->fetch_assoc();
     $jumlahTransaksi = $rowJumlahTransaksi['jumlah_transaksi'];
 }
@@ -36,13 +37,11 @@ if ($resultJumlahTransaksi->num_rows > 0) {
 // Ambil data riwayat transaksi berdasarkan tanggal yang dipilih
 $query = "
     SELECT t.id_transaksi, t.tanggal_transaksi, k.nama AS nama_karyawan, b.nama AS nama_barang, 
-           t.quantity, t.subtotal,
-           SUM(t.subtotal) AS total
+           n.quantity, (b.harga * n.quantity) AS subtotal
     FROM transaksi t
+    JOIN nota n ON t.id_transaksi = n.id_transaksi
+    JOIN barang b ON n.id_barang = b.id_barang
     JOIN karyawan k ON t.id_karyawan = k.id_karyawan
-    JOIN barang b ON t.id_barang = b.id_barang
-    GROUP BY t.id_transaksi, t.tanggal_transaksi, k.nama, b.nama, t.quantity, t.subtotal
-    HAVING t.id_transaksi = t.id_transaksi
 ";
 
 if ($tanggal_dipilih) {
@@ -53,10 +52,9 @@ $query .= " ORDER BY t.id_transaksi DESC, t.tanggal_transaksi DESC";
 
 $result = $conn->query($query);
 
-
 // Kelompokkan transaksi berdasarkan ID Transaksi
 $riwayat = [];
-if ($result->num_rows > 0) {
+if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $id_transaksi = $row['id_transaksi'];
         $riwayat[$id_transaksi]['tanggal_transaksi'] = $row['tanggal_transaksi'];
@@ -75,6 +73,7 @@ if ($result->num_rows > 0) {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="id">
@@ -139,6 +138,10 @@ if ($result->num_rows > 0) {
                     <button type="submit" name="tampilkan_semua" value="1" class="btn btn-secondary">Tampilkan Semua
                         Data</button>
                 </form>
+            </div>
+
+            <div>
+                <a href="grafik.php" class="btn btn-primary">Tampilkan Grafik Penjualan</a>
             </div>
 
 

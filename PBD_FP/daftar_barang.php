@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_harga'])) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_barang'])) {
     $id_barang = $_POST['id_barang'];
 
-    $queryHapus = "DELETE FROM barang WHERE id_barang = '$id_barang'";
+    $queryHapus = "UPDATE barang SET status = 'nonaktif' WHERE id_barang = '$id_barang'";
     if ($conn->query($queryHapus) === TRUE) {
         echo "<script>alert('Barang berhasil dihapus!');</script>";
     } else {
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_barang'])) {
     </div>
     <div class="alert alert-info">
         <a href="dashboard.php" class="btn btn-secondary ">Kembali ke Dashboard</a>
-        <!-- <strong>Jumlah Barang yang stoknya habis :</strong> <?php echo $jumlahBarang; ?> -->
+        <a href="barang_dihapus.php" class="btn btn-danger ">Daftar Barang Dihapus</a>
     </div>
 
     <div class="container mt-4">
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_barang'])) {
             <tbody>
                 <?php
                 // Query untuk mengambil data barang
-                $query = "SELECT id_barang, nama, harga, stok FROM barang";
+                $query = "SELECT id_barang, nama, harga, stok FROM barang WHERE status='aktif' ORDER BY id_barang ASC ";
                 $result = $conn->query($query);
 
                 if ($result->num_rows > 0) {

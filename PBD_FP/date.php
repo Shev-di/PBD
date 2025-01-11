@@ -1,57 +1,106 @@
 <?php
-require "auth/config.php";
+require "auth/config.php"; // Koneksi ke database
 session_start();
 
-// Tambahkan Barang Baru
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah_barang'])) {
-    $id_barang = $_POST['id_barang'];
-    $nama = $_POST['nama'];
-    $harga = $_POST['harga'];
-    $stok = $_POST['stok'];
+// Fungsi untuk membuat kode transaksi otomatis
+function generateKodeTransaksi($conn)
+{
+    $query = "SELECT id_transaksi FROM transaksi ORDER BY id_transaksi DESC LIMIT 1";
+    $result = $conn->query($query);
 
-    $queryTambah = "INSERT INTO barang (id_barang, nama, harga, stok) VALUES ('$id_barang', '$nama', $harga, $stok)";
-    if ($conn->query($queryTambah) === TRUE) {
-        echo "<script>alert('Barang berhasil ditambahkan!');</script>";
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $lastKode = (int) $row['id_transaksi'];
+        $newNumber = $lastKode + 1;
+        return str_pad($newNumber, 3, "0", STR_PAD_LEFT);
     } else {
-        echo "<script>alert('Gagal menambahkan barang: " . $conn->error . "');</script>";
+        return "001";
     }
 }
 
-// Edit Stok Barang
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_stok'])) {
-    $id_barang = $_POST['id_barang'];
-    $stok = $_POST['stok'];
+// Set kode transaksi di session jika belum ada
+if (!isset($_SESSION['kode_transaksi'])) {
+    $_SESSION['kode_transaksi'] = generateKodeTransaksi($conn);
+}
 
-    $queryEditStok = "UPDATE barang SET stok = $stok WHERE id_barang = '$id_barang'";
-    if ($conn->query($queryEditStok) === TRUE) {
-        echo "<script>alert('Stok berhasil diperbarui!');</script>";
+// Tambahkan barang ke transaksi
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah'])) {
+    $kodeBarang = $_POST['id_barang'];
+    $jumlah = (int) $_POST['jumlah'];
+
+    if (!isset($_SESSION['kode_transaksi'])) {
+        echo "Kode transaksi belum dibuat.";
+        exit();
+    }
+
+    $kodeTransaksi = $_SESSION['kode_transaksi'];
+
+    // Ambil data barang dari database
+    $queryBarang = "SELECT nama, harga, stok FROM barang WHERE id_barang = '$kodeBarang'";
+    $resultBarang = $conn->query($queryBarang);
+
+    if ($resultBarang->num_rows > 0) {
+        $rowBarang = $resultBarang->fetch_assoc();
+        $stok = $rowBarang['stok'];
+
+        if ($stok >= $jumlah) {
+            $harga = $rowBarang['harga'];
+            $subtotal = $harga * $jumlah;
+            $date = date('Y-m-d');
+            $id_karyawan = $_SESSION['id_karyawan']; // ID karyawan dari session
+
+            $checkQuery = "SELECT * FROM transaksi WHERE id_transaksi = '$kodeTransaksi'";
+            $checkResult = $conn->query($checkQuery);
+
+            if ($checkResult->num_rows > 0) {
+                $queryTransaksi = "INSERT INTO transaksi (id_transaksi, id_karyawan, tanggal_transaksi)
+                                    VALUES ('$kodeTransaksi', '$id_karyawan', '$date')";
+                $queryNota = "INSERT INTO nota (id_transaksi, id_barang, quantity) 
+                               VALUES ('$kodeTransaksi', '$kodeBarang', '$jumlah')";
+                if($conn->query($queryTransaksi) === TRUE && $conn->query($queryNota) === TRUE) {
+                    $queryUpdateStok = "UPDATE barang SET stok = stok - $jumlah WHERE id_barang = '$kodeBarang'";
+                    $conn->query($queryUpdateStok);
+                    echo "Barang berhasil ditambahkan ke transaksi";
+                } else {
+                    echo "Gagal menambahkan ke transaksi : ". $conn->error;
+                }
+                
+            } else {
+                $queryNota = "INSERT INTO nota (id_transaksi, id_barang, quantity) 
+                               VALUES ('$kodeTransaksi', '$kodeBarang', $jumlah)";
+                // $conn->query($queryTransaksi);
+                if ($conn->query($queryNota) === TRUE) {
+                    // Kurangi stok barang
+                    $queryUpdateStok = "UPDATE barang SET stok = stok - $jumlah WHERE id_barang = '$kodeBarang'";
+                    $conn->query($queryUpdateStok);
+                    echo "Barang berhasil ditambahkan ke transaksi.";
+                } else {
+                    echo "Gagal menambahkan ke transaksi: " . $conn->error;
+                }
+            }
+
+            // Masukkan data ke tabel transaksi
+            // $queryTransaksi = "INSERT INTO nota (id_transaksi, id_barang, quantity) 
+            //                    VALUES ('$kodeTransaksi', '$kodeBarang', $jumlah)";
+
+
+        } else {
+            echo "Stok barang tidak mencukupi.";
+        }
     } else {
-        echo "<script>alert('Gagal memperbarui stok: " . $conn->error . "');</script>";
+        echo "Kode barang tidak ditemukan.";
     }
 }
 
-// Edit Harga Barang
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_harga'])) {
-    $id_barang = $_POST['id_barang'];
-    $harga = $_POST['harga'];
-
-    $queryEditHarga = "UPDATE barang SET harga = $harga WHERE id_barang = '$id_barang'";
-    if ($conn->query($queryEditHarga) === TRUE) {
-        echo "<script>alert('Harga berhasil diperbarui!');</script>";
+// Cetak nota transaksi
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cetak'])) {
+    if (isset($_SESSION['kode_transaksi'])) {
+        $kodeTransaksi = $_SESSION['kode_transaksi'];
+        unset($_SESSION['kode_transaksi']); // Hapus session untuk transaksi baru
+        header("Location: nota.php?kode_transaksi=$kodeTransaksi");
+        exit();
     } else {
-        echo "<script>alert('Gagal memperbarui harga: " . $conn->error . "');</script>";
-    }
-}
-
-// Hapus Barang
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_barang'])) {
-    $id_barang = $_POST['id_barang'];
-
-    $queryHapus = "DELETE FROM barang WHERE id_barang = '$id_barang'";
-    if ($conn->query($queryHapus) === TRUE) {
-        echo "<script>alert('Barang berhasil dihapus!');</script>";
-    } else {
-        echo "<script>alert('Gagal menghapus barang: " . $conn->error . "');</script>";
+        echo "Kode transaksi tidak ditemukan.";
     }
 }
 ?>
@@ -63,98 +112,82 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_barang'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <title>Daftar Barang</title>
+    <title>Kasir MiniMarket</title>
 </head>
 
 <body>
     <div class="d-flex flex-column py-3 justify-content-center align-items-center text-white bg-primary">
-        <h1>Daftar Barang</h1>
-
-    </div>
-    <div class="alert alert-info">
-        <a href="dashboard.php" class="btn btn-secondary ">Kembali ke Dashboard</a>
-        <!-- <strong>Jumlah Barang yang stoknya habis :</strong> <?php echo $jumlahBarang; ?> -->
+        <h1>Selamat Datang</h1>
+        <h4>Kasir Minimarket</h4>
     </div>
 
-    <div class="container mt-4">
+    <div class="row vh-100">
+        <div class="col-sm-2 d-flex flex-column bg-secondary align-items-center pt-3">
+            <a href="dashboard.php" class="btn btn-dark px-4 mt-2">Buat Transaksi</a>
+            <a href="riwayat.php" class="btn btn-light mt-2">Riwayat Transaksi</a>
+            <a href="daftar_barang.php" class="btn btn-light mt-2 px-4">Daftar Barang</a>
+            <a href="login.php" class="btn btn-danger mt-2">LOGOUT</a>
+        </div>
 
+        <div class="col-sm-10 pt-4">
+            <strong>Tanggal:</strong> <?= date('Y-m-d'); ?>
+            <strong class="ms-4">Kode Transaksi Aktif:</strong> <?= $_SESSION['kode_transaksi']; ?>
 
-        <!-- Form Tambah Barang -->
-        <h4>Tambah Barang Baru</h4>
-        <form action="" method="POST" class="mb-4">
-            <div class="row">
-                <div class="col-md-3">
-                    <input type="text" name="id_barang" class="form-control" placeholder="Kode Barang" required>
+            <form action="" method="POST" class="mt-2">
+                <div class="mt-3 d-flex">
+                    <label for="">Kode Barang:</label>
+                    <input name="id_barang" class="ms-1 rounded" type="text">
+                    <label for="" class="ms-3">Jumlah:</label>
+                    <input name="jumlah" class="ms-2 rounded" type="number" min="1">
+                    <button class="btn btn-primary ms-3" type="submit" name="tambah">Tambahkan</button>
                 </div>
-                <div class="col-md-3">
-                    <input type="text" name="nama" class="form-control" placeholder="Nama Barang" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="harga" class="form-control" placeholder="Harga" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="stok" class="form-control" placeholder="Stok" required>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" name="tambah_barang" class="btn btn-success">Tambah Barang</button>
-                </div>
-            </div>
-        </form>
 
-        <!-- Daftar Barang -->
-        <h4>Daftar Barang</h4>
-        <table class="table table-bordered">
-            <thead class="text-center bg-secondary text-white">
-                <tr>
-                    <th>No</th>
-                    <th>Kode Barang</th>
-                    <th>Nama Barang</th>
-                    <th>Harga</th>
-                    <th>Stok</th>
-                    <th>Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                // Query untuk mengambil data barang
-                $query = "SELECT id_barang, nama, harga, stok FROM barang";
-                $result = $conn->query($query);
+                <div class="mt-3">
+                    <table class="table">
+                        <thead class="text-center">
+                            <tr>
+                                <th>No</th>
+                                <th>Kode Barang</th>
+                                <th>Nama Barang</th>
+                                <th>Harga</th>
+                                <th>Jumlah Barang</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $kodeTransaksi = $_SESSION['kode_transaksi'];
+                            $query = "SELECT n.id_barang, b.nama, b.harga, n.quantity 
+                                      FROM transaksi t
+                                      JOIN nota n ON t.id_transaksi = n.id_transaksi
+                                      JOIN barang b ON n.id_barang = b.id_barang
+                                      WHERE n.id_transaksi = '$kodeTransaksi'";
+                            $result = $conn->query($query);
 
-                if ($result->num_rows > 0) {
-                    $no = 1;
-                    while ($row = $result->fetch_assoc()) {
-                        echo "<tr class='text-center'>";
-                        echo "<td>" . $no++ . "</td>";
-                        echo "<td>" . $row['id_barang'] . "</td>";
-                        echo "<td>" . $row['nama'] . "</td>";
-                        echo "<td>
-                            <form action='' method='POST' class='d-inline'>
-                                <input type='hidden' name='id_barang' value='" . $row['id_barang'] . "'>
-                                <input type='number' name='harga' value='" . $row['harga'] . "' class='form-control mb-2'>
-                                <button type='submit' name='edit_harga' class='btn btn-primary btn-sm'>Edit Harga</button>
-                            </form>
-                        </td>";
-                        echo "<td>
-                            <form action='' method='POST' class='d-inline'>
-                                <input type='hidden' name='id_barang' value='" . $row['id_barang'] . "'>
-                                <input type='number' name='stok' value='" . $row['stok'] . "' class='form-control mb-2'>
-                                <button type='submit' name='edit_stok' class='btn btn-primary btn-sm'>Edit Stok</button>
-                            </form>
-                        </td>";
-                        echo "<td>
-                            <form action='' method='POST' class='d-inline'>
-                                <input type='hidden' name='id_barang' value='" . $row['id_barang'] . "'>
-                                <button type='submit' name='hapus_barang' class='btn btn-danger btn-sm'>Hapus</button>
-                            </form>
-                        </td>";
-                        echo "</tr>";
-                    }
-                } else {
-                    echo "<tr><td colspan='6' class='text-center'>Data barang tidak ditemukan</td></tr>";
-                }
-                ?>
-            </tbody>
-        </table>
+                            if ($result->num_rows > 0) {
+                                $no = 1;
+                                while ($row = $result->fetch_assoc()) {
+                                    echo "<tr class='text-center'>";
+                                    echo "<td>" . $no++ . "</td>";
+                                    echo "<td>" . $row['id_barang'] . "</td>";
+                                    echo "<td>" . $row['nama'] . "</td>";
+                                    echo "<td>" . number_format($row['harga'], 0, ',', '.') . "</td>";
+                                    echo "<td>" . $row['quantity'] . "</td>";
+                                    echo "<td>" . number_format($row['subtotal'], 0, ',', '.') . "</td>";
+                                    echo "</tr>";
+                                }
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-end align-items-end">
+                    <button name="cetak" type="submit" class="btn bg-primary px-3 rounded text-light">Cetak
+                        Nota</button>
+                </div>
+            </form>
+        </div>
     </div>
 </body>
 

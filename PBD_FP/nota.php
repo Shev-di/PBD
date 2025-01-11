@@ -8,12 +8,18 @@ if (isset($_GET['kode_transaksi'])) {
 
     // Query untuk mendapatkan data transaksi
     $query = "
-        SELECT t.id_transaksi, b.nama, b.harga, t.quantity, t.subtotal, t.tanggal_transaksi
+        SELECT n.id_transaksi, b.nama, b.harga, n.quantity, 
+               (b.harga * n.quantity) AS subtotal, t.tanggal_transaksi
         FROM transaksi t
-        JOIN barang b ON t.id_barang = b.id_barang
+        JOIN nota n ON t.id_transaksi = n.id_transaksi
+        JOIN barang b ON n.id_barang = b.id_barang
         WHERE t.id_transaksi = '$kodeTransaksi'
     ";
     $result = $conn->query($query);
+
+    if (!$result) {
+        die("Query gagal: " . $conn->error);
+    }
 
     if ($result->num_rows > 0) {
         $transaksi = $result->fetch_all(MYSQLI_ASSOC);
@@ -22,14 +28,19 @@ if (isset($_GET['kode_transaksi'])) {
         exit();
     }
 
+    // Query untuk menghitung total transaksi
     $queryTotal = "
-        SELECT SUM(t.subtotal) AS total
-        FROM transaksi t 
-        GROUP BY t.id_transaksi
-        HAVING t.id_transaksi = '$kodeTransaksi'
+        SELECT SUM(b.harga * n.quantity) AS total
+        FROM nota n
+        JOIN barang b ON n.id_barang = b.id_barang
+        WHERE n.id_transaksi = '$kodeTransaksi'
     ";
-
     $resultTotal = $conn->query($queryTotal);
+
+    if (!$resultTotal) {
+        die("Query gagal: " . $conn->error);
+    }
+
     if ($resultTotal->num_rows > 0) {
         $row = $resultTotal->fetch_assoc();
         $total = $row['total'];
@@ -42,6 +53,7 @@ if (isset($_GET['kode_transaksi'])) {
     exit();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
