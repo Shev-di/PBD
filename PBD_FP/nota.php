@@ -33,7 +33,8 @@ if (isset($_GET['kode_transaksi'])) {
         SELECT SUM(b.harga * n.quantity) AS total
         FROM nota n
         JOIN barang b ON n.id_barang = b.id_barang
-        WHERE n.id_transaksi = '$kodeTransaksi'
+        GROUP BY n.id_transaksi
+        HAVING n.id_transaksi = '$kodeTransaksi';
     ";
     $resultTotal = $conn->query($queryTotal);
 

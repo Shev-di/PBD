@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah'])) {
             $id_karyawan = $_SESSION['id_karyawan']; // ID karyawan dari session
 
             // Periksa apakah transaksi sudah ada
-            $checkQuery = "SELECT * FROM transaksi WHERE id_transaksi = '$kodeTransaksi'";
+            $checkQuery = "SELECT * FROM transaksi GROUP BY id_transaksi HAVING id_transaksi = '$kodeTransaksi'";
             $checkResult = $conn->query($checkQuery);
 
             if ($checkResult->num_rows == 0) {

@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah_barang'])) {
     $harga = $_POST['harga'];
     $stok = $_POST['stok'];
 
-    $queryTambah = "INSERT INTO barang (id_barang, nama, harga, stok) VALUES ('$id_barang', '$nama', $harga, $stok)";
+    $queryTambah = "INSERT INTO barang (id_barang, nama, harga, stok, status) VALUES ('$id_barang', '$nama', $harga, $stok, 'aktif')";
     if ($conn->query($queryTambah) === TRUE) {
         echo "<script>alert('Barang berhasil ditambahkan!');</script>";
     } else {
@@ -49,11 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_barang'])) {
 
     $queryHapus = "UPDATE barang SET status = 'nonaktif' WHERE id_barang = '$id_barang'";
     if ($conn->query($queryHapus) === TRUE) {
-        echo "<script>alert('Barang berhasil dihapus!');</script>";
+        echo "<script>alert('Barang dihapus!');</script>";
     } else {
-        echo "<script>alert('Gagal menghapus barang: " . $conn->error . "');</script>";
+        echo "<script>alert('Gagal menghapus barang : " . $conn->error . "');</script>";
     }
 }
+
 ?>
 
 <!DOCTYPE html>
